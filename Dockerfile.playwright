@@ -1,0 +1,32 @@
+# Playwright 版 — 支持创作者中心发布 / 爬虫 / 完播回采
+FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    FFMPEG_PATH=/usr/bin/ffmpeg \
+    VIDEO_OUTPUT_DIR=/app/data/output/videos \
+    DOUYIN_PUBLISH_HEADLESS=1 \
+    XHS_PUBLISH_HEADLESS=1 \
+    PUBLISH_QUEUE_ENABLED=1 \
+    API_PORT=9200
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY . .
+
+RUN mkdir -p /app/data/output/videos /app/data/state /app/data/db
+
+EXPOSE 9200
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:9200/api/health/ready || exit 1
+
+CMD ["python", "-m", "uvicorn", "api_server:app", "--host", "0.0.0.0", "--port", "9200"]

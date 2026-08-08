@@ -1,0 +1,12 @@
+1. 安装/升级:
+   helm upgrade --install ai-agent-matrix ./deploy/helm/ai-agent-matrix
+
+2. 查看服务:
+   kubectl get svc {{ include "ai-agent-matrix.fullname" . }}
+
+3. 健康检查:
+   kubectl port-forward svc/{{ include "ai-agent-matrix.fullname" . }} 9200:{{ .Values.service.port }}
+   curl http://127.0.0.1:9200/api/health
+
+4. 配置 REVIEW_BASE_URL 后重启:
+   helm upgrade ai-agent-matrix ./deploy/helm/ai-agent-matrix --set config.REVIEW_BASE_URL=https://your-domain

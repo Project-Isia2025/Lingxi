@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-agent-matrix-config
+  labels:
+    app: ai-agent-matrix
+data:
+  REVIEW_BASE_URL: "https://your-public-domain.com"
+  PUBLISH_QUEUE_ENABLED: "1"
+  PUBLISH_QUEUE_INTERVAL_SEC: "300"
+  PERCEPTION_SCHEDULE_ENABLED: "1"
+  POST_PUBLISH_MONITOR_ENABLED: "1"
+  COMBINED_ROI_ENABLED: "1"
+  SLICE_APPROVE_MATRIX_PUBLISH: "1"

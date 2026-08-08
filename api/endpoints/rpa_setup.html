@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>影刀 RPA 对接 · 灵犀引擎</title>
+  <style>
+    :root { --bg:#070b14; --panel:#111827; --text:#f8fafc; --muted:#94a3b8; --line:#243044;
+      --accent:#6366f1; --ok:#22c55e; --warn:#f59e0b; }
+    * { box-sizing:border-box; }
+    body { font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif; background:var(--bg); color:var(--text); margin:0; padding:20px 16px 48px; }
+    .wrap { max-width:820px; margin:0 auto; }
+    a { color:#93c5fd; }
+    h1 { margin:0 0 8px; font-size:1.45rem; }
+    .sub { color:var(--muted); line-height:1.6; margin-bottom:20px; }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:16px; }
+    .panel h2 { margin:0 0 12px; font-size:1.05rem; }
+    .status-row { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+    .pill { padding:6px 12px; border-radius:999px; background:#0f172a; border:1px solid var(--line); font-size:0.85rem; }
+    .pill.ok { border-color:#166534; color:#bbf7d0; }
+    .pill.warn { border-color:#854d0e; color:#fde68a; }
+    .step { border-left:3px solid var(--accent); padding:0 0 18px 16px; margin-bottom:8px; }
+    .step h3 { margin:0 0 6px; font-size:1rem; }
+    .step p { margin:0 0 8px; color:var(--muted); font-size:0.92rem; line-height:1.55; }
+    table { width:100%; border-collapse:collapse; font-size:0.88rem; margin:8px 0; }
+    td { padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+    td:first-child { color:var(--muted); width:36%; }
+    code, pre { background:#0f172a; border-radius:8px; font-size:0.82rem; }
+    code { padding:2px 6px; }
+    pre { padding:12px; overflow:auto; white-space:pre-wrap; word-break:break-all; margin:8px 0; }
+    .btn { border:none; border-radius:10px; padding:10px 16px; font-weight:600; cursor:pointer; color:#fff; background:var(--accent); margin-right:8px; margin-top:6px; }
+    .btn.ok { background:var(--ok); }
+    .btn.secondary { background:#334155; }
+    .toast { display:none; margin-bottom:12px; padding:10px 14px; border-radius:10px; background:#1e3a8a; }
+    .toast.show { display:block; }
+    .records { font-size:0.85rem; color:var(--muted); }
+    .records li { margin:4px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p><a href="/dashboard">← 返回运营首页</a> · <a href="/dashboard/engineering">工程师技术栈</a></p>
+    <h1>影刀 RPA 对接向导</h1>
+    <p class="sub">把影刀抓到的竞品数据自动回写到灵犀「感知」层，AI 工作流会优先使用这些数据，无需手工导 Excel。</p>
+    <div class="toast" id="toast"></div>
+
+    <div class="panel">
+      <h2>当前状态</h2>
+      <div class="status-row" id="statusPills"></div>
+      <div class="records" id="recentRecords"></div>
+    </div>
+
+    <div class="panel">
+      <h2>影刀 HTTP 请求 — 逐步配置</h2>
+      <div id="steps"></div>
+      <button class="btn ok" id="testBtn">发送测试数据</button>
+      <button class="btn secondary" id="initBtn">一键复制字段映射文件</button>
+      <button class="btn secondary" id="refreshBtn">刷新状态</button>
+    </div>
+
+    <div class="panel">
+      <h2>Body 示例（可复制到影刀）</h2>
+      <pre id="bodyExample"></pre>
+      <button class="btn secondary" id="copyBodyBtn">复制 JSON Body</button>
+    </div>
+  </div>
+  <script>
+    let guide = {};
+
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 4000);
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast('已复制到剪贴板');
+      } catch (e) {
+        toast('复制失败，请手动选中复制');
+      }
+    }
+
+    function renderSteps() {
+      const steps = guide.yingdao_steps || [];
+      document.getElementById('steps').innerHTML = steps.map(s => {
+        let fields = '';
+        if (s.fields) {
+          fields = '<table>' + s.fields.map(f =>
+            `<tr><td>${f.label}</td><td><code>${f.value || ''}</code>
+              ${f.copy ? `<button class="btn secondary" style="padding:4px 8px;font-size:0.75rem" onclick="copyText('${(f.value||'').replace(/'/g,"\\'")}')">复制</button>` : ''}
+            </td></tr>`
+          ).join('') + '</table>';
+        }
+        return `<div class="step">
+          <h3>步骤 ${s.step}：${s.title}</h3>
+          <p>${s.detail || ''}</p>${fields}
+        </div>`;
+      }).join('');
+      document.getElementById('bodyExample').textContent = guide.payload_example_text || JSON.stringify(guide.payload_example || {}, null, 2);
+    }
+
+    async function loadStatus() {
+      const [st, rec, g] = await Promise.all([
+        fetch('/api/rpa/status').then(r => r.json()),
+        fetch('/api/rpa/records?limit=5').then(r => r.json()),
+        fetch('/api/rpa/guide').then(r => r.json()),
+      ]);
+      guide = g;
+      renderSteps();
+      const pills = [
+        ['感知回写', st.enabled ? '已启用' : '已关闭', st.enabled],
+        ['鉴权', st.auth_mode === 'token' ? 'Token 已配置' : '未配置（开放）', st.auth_mode === 'token'],
+        ['已收记录', `${st.record_count || 0} 条`, (st.record_count || 0) > 0],
+        ['字段映射', st.mapping_loaded ? '已就绪' : '缺省', st.mapping_loaded],
+      ];
+      document.getElementById('statusPills').innerHTML = pills.map(([a,b,ok]) =>
+        `<span class="pill ${ok?'ok':'warn'}">${a}：${b}</span>`).join('');
+      const rows = rec.records || [];
+      document.getElementById('recentRecords').innerHTML = rows.length
+        ? '<ul>' + rows.map(r => `<li>${r.received_at || ''} · ${r.source} · ${r.keyword || '—'} · ${r.item_count} 条</li>`).join('') + '</ul>'
+        : '<p>尚无回写记录 — 完成影刀配置后运行一次流程，或点击「发送测试数据」</p>';
+    }
+
+    document.getElementById('testBtn').onclick = async () => {
+      const r = await fetch('/api/rpa/test-ingest', { method: 'POST' });
+      const j = await r.json();
+      toast(j.ok ? `测试成功：${j.item_count || 0} 条已写入` : (j.error || '测试失败'));
+      loadStatus();
+    };
+
+    document.getElementById('initBtn').onclick = async () => {
+      const r = await fetch('/api/rpa/setup/init-mapping', { method: 'POST' });
+      const j = await r.json();
+      toast(j.ok ? (j.created ? '已创建 rpa_field_mapping.json' : '映射文件已存在') : (j.error || '失败'));
+      loadStatus();
+    };
+
+    document.getElementById('refreshBtn').onclick = loadStatus;
+    document.getElementById('copyBodyBtn').onclick = () => copyText(document.getElementById('bodyExample').textContent);
+
+    loadStatus();
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+apiVersion: v2
+name: ai-agent-matrix
+description: 五层 AI 智能体矩阵 — 感知/策略/内容/审核/发布/监控
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - ai-agent
+  - douyin
+  - content-matrix
+maintainers:
+  - name: matrix-team

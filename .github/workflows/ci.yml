@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest pytest-cov
+
+      - name: Pytest with coverage
+        run: |
+          python -m pytest -q --disable-warnings \
+            --cov=core --cov=infra --cov=config --cov=api/auth.py \
+            --cov-report=term-missing \
+            --cov-fail-under=20
+
+      - name: Quick acceptance
+        run: python scripts/acceptance_all.py --quick --skip-docker
+
+      - name: Video provider dry-run
+        run: python scripts/acceptance_video_live.py
+
+      - name: Feishu callback E2E
+        run: python scripts/acceptance_feishu_e2e.py
+
+      - name: Publish dry-run E2E
+        run: python scripts/acceptance_publish_e2e.py
+
+      - name: Publish smoke check-only
+        run: python scripts/acceptance_publish_smoke.py
+
+      - name: Deploy template verify
+        run: python scripts/acceptance_deploy_verify.py
+
+      - name: Monitor takedown E2E
+        run: python scripts/acceptance_monitor_e2e.py
+
+      - name: Live runbook dry-run
+        run: python scripts/acceptance_live_runbook.py
+
+      - name: Publish monitor chain
+        run: python scripts/acceptance_publish_monitor_live.py
+
+      - name: Runtime dashboard
+        run: python scripts/acceptance_runtime_dashboard.py
+
+      - name: Runtime WS org filter
+        run: python scripts/acceptance_runtime_ws_org.py
+
+      - name: Org webhook runbook alert
+        run: python scripts/acceptance_org_webhook_alert.py
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t lingxi-engine:ci .
+
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: lingxi-engine:ci
+          format: table
+          exit-code: "0"
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+
+      - name: Docker healthcheck smoke
+        run: |
+          docker run -d --name lingxi-ci -p 19200:9200 \
+            -e WORKER_LEADER_LOCK_ENABLED=0 \
+            -e API_AUTH_ENABLED=0 \
+            lingxi-engine:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:19200/api/health/ready; then
+              echo "ready ok"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs lingxi-ci
+          exit 1

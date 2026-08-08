@@ -1,0 +1,124 @@
+# Phase 0 基础设施 — 严格对照开发指南，一键启动
+# 用法: docker compose -f docker-compose.infra.yml up -d
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: commerce-agent-postgres
+    environment:
+      POSTGRES_DB: commerce_agent
+      POSTGRES_USER: agent
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    ports: ["5432:5432"]
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./deploy/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent -d commerce_agent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: commerce-agent-redis
+    ports: ["6379:6379"]
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: commerce-agent-qdrant
+    ports: ["6333:6333"]
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: commerce-agent-minio
+    ports: ["9000:9000", "9001:9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: commerce-agent-prometheus
+    ports: ["9090:9090"]
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: commerce-agent-grafana
+    ports: ["3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+  celery-worker:
+    build: .
+    container_name: commerce-agent-celery
+    command: celery -A infra.task_queue.celery_app worker --loglevel=info
+    volumes:
+      - ./data:/app/data
+      - ./config/local.env:/app/config/local.env:ro
+    environment:
+      - WORKER_BACKEND=celery
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - REDIS_HOST=redis
+      - DATABASE_URL=postgresql+asyncpg://agent:${DB_PASSWORD:-changeme}@postgres:5432/commerce_agent
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  celery-beat:
+    build: .
+    container_name: commerce-agent-celery-beat
+    command: celery -A infra.task_queue.celery_app beat --loglevel=info
+    volumes:
+      - ./data:/app/data
+      - ./config/local.env:/app/config/local.env:ro
+    environment:
+      - WORKER_BACKEND=celery
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - REDIS_HOST=redis
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pg_data:
+  qdrant_data:
+  minio_data:

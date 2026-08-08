@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>技术实现方案 · 工程师落地版</title>
+  <style>
+    :root { --bg:#0b1020; --panel:#111827; --text:#f1f5f9; --muted:#94a3b8; --line:#243044;
+      --ok:#22c55e; --warn:#f59e0b; --accent:#6366f1; }
+    * { box-sizing:border-box; }
+    body { font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif; background:var(--bg); color:var(--text); margin:0; padding:20px 16px 48px; }
+    .wrap { max-width:980px; margin:0 auto; }
+    a { color:#93c5fd; }
+    h1 { margin:0 0 6px; font-size:1.5rem; }
+    .sub { color:var(--muted); margin-bottom:20px; line-height:1.6; }
+    table { width:100%; border-collapse:collapse; font-size:0.88rem; }
+    th, td { border:1px solid var(--line); padding:12px 10px; vertical-align:top; text-align:left; }
+    th { background:#0f172a; color:#cbd5e1; font-weight:600; }
+    tr:nth-child(even) td { background:rgba(15,23,42,.45); }
+    .badge { display:inline-block; padding:3px 8px; border-radius:999px; font-size:0.75rem; }
+    .badge.ok { background:#14532d; color:#bbf7d0; }
+    .badge.partial { background:#713f12; color:#fde68a; }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; margin:18px 0; }
+    .panel h2 { margin:0 0 10px; font-size:1rem; }
+    ul { margin:0; padding-left:18px; color:var(--muted); line-height:1.65; }
+    code { font-size:0.82rem; background:#0f172a; padding:2px 6px; border-radius:4px; }
+    .paths { color:#a5b4fc; font-size:0.8rem; margin-top:6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p><a href="/dashboard">← 返回运营首页</a></p>
+    <h1 id="title">技术实现方案（工程师落地版）</h1>
+    <p class="sub" id="subtitle">LangChain + 低代码工具 + 平台 API</p>
+    <p class="sub" id="summary"></p>
+
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:14%">层级</th>
+            <th style="width:18%">方案选型</th>
+            <th style="width:18%">项目实现</th>
+            <th style="width:8%">状态</th>
+            <th>作用 / 说明</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>快速启动</h2>
+      <ul id="quickStart"></ul>
+    </div>
+    <div class="panel">
+      <h2>建议下一步</h2>
+      <ul id="nextSteps"></ul>
+    </div>
+    <div class="panel">
+      <h2>集成指南</h2>
+      <ul>
+        <li>影刀 RPA：<a href="/dashboard/rpa">运营向导</a> · <code>GET /api/rpa/guide</code> · <code>docs/yingdao_setup.md</code></li>
+        <li>LLM 轮换：<code>GET /api/engineering/llm</code> · 配置 <code>LLM_MODELS</code></li>
+        <li>FC 生产：<code>deploy/aliyun-fc/production.md</code></li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h2>API</h2>
+      <p class="sub" style="margin:0"><code>GET /api/engineering/stack</code> · <code>GET /api/workflow/overview</code> · <a href="/docs">Swagger</a></p>
+    </div>
+  </div>
+  <script>
+    (async () => {
+      const j = await (await fetch('/api/engineering/stack')).json();
+      document.getElementById('title').textContent = j.title || '';
+      document.getElementById('subtitle').textContent = j.subtitle || '';
+      document.getElementById('summary').textContent = j.summary || '';
+      document.getElementById('rows').innerHTML = (j.layers || []).map(row => `
+        <tr>
+          <td><strong>${row.layer}</strong></td>
+          <td>${row.tech_plan}</td>
+          <td>${row.tech_project}</td>
+          <td><span class="badge ${row.status==='implemented'?'ok':'partial'}">${row.status_label}</span></td>
+          <td>
+            ${row.role}
+            <div class="paths">${(row.paths||[]).map(p=>`<div><code>${p}</code></div>`).join('')}</div>
+            ${row.notes ? `<div style="color:var(--muted);margin-top:6px;font-size:0.82rem">${row.notes}</div>`:''}
+          </td>
+        </tr>`).join('');
+      document.getElementById('quickStart').innerHTML = (j.quick_start||[]).map(s=>`<li><code>${s}</code></li>`).join('');
+      document.getElementById('nextSteps').innerHTML = (j.next_steps||[]).map(s=>`<li>${s}</li>`).join('');
+    })();
+  </script>
+</body>
+</html>

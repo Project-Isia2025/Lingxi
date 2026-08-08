@@ -1,0 +1,26 @@
+# 生产 Docker Compose — 与根目录 docker-compose.yml 叠加使用
+# 用法: python scripts/deploy_up.py --stack prod --build
+services:
+  matrix-api:
+    restart: always
+    environment:
+      - REVIEW_BASE_URL=${REVIEW_BASE_URL:-http://127.0.0.1:9200}
+      - API_PORT=9200
+      - PUBLISH_QUEUE_ENABLED=${PUBLISH_QUEUE_ENABLED:-1}
+      - PERCEPTION_SCHEDULE_ENABLED=${PERCEPTION_SCHEDULE_ENABLED:-1}
+      - POST_PUBLISH_MONITOR_ENABLED=${POST_PUBLISH_MONITOR_ENABLED:-1}
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  matrix-playwright:
+    restart: always
+    environment:
+      - PUBLISH_QUEUE_ENABLED=1
+      - DOUYIN_PUBLISH_HEADLESS=1
+      - XHS_PUBLISH_HEADLESS=1
+
+  matrix-tunnel:
+    restart: always

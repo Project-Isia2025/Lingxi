@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>灵犀引擎 · 智能带货助手</title>
+  <style>
+    :root {
+      --bg: #0b1220; --card: #151f32; --text: #f1f5f9; --muted: #94a3b8;
+      --accent: #2563eb; --accent2: #16a34a; --warn: #f59e0b; --danger: #ef4444;
+      --line: #243044;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+      background: var(--bg); color: var(--text); margin: 0; padding: 20px 16px 48px;
+      font-size: 16px; line-height: 1.5;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    .hero { text-align: center; margin-bottom: 28px; }
+    .hero h1 { font-size: 1.75rem; margin: 0 0 8px; font-weight: 700; }
+    .hero p { color: var(--muted); margin: 0; font-size: 1rem; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px; margin-top: 14px;
+      padding: 8px 14px; border-radius: 999px; background: var(--card); font-size: 0.95rem;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+    .dot.ok { background: var(--accent2); }
+    .steps {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px;
+    }
+    .step {
+      background: var(--card); border-radius: 12px; padding: 14px 10px; text-align: center;
+      border: 1px solid var(--line);
+    }
+    .step-num {
+      display: inline-block; width: 28px; height: 28px; line-height: 28px; border-radius: 50%;
+      background: var(--accent); color: #fff; font-weight: 700; margin-bottom: 6px;
+    }
+    .step b { display: block; font-size: 0.95rem; }
+    .step span { color: var(--muted); font-size: 0.82rem; }
+    .panel {
+      background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+      padding: 22px 20px; margin-bottom: 20px;
+    }
+    .panel h2 { margin: 0 0 16px; font-size: 1.15rem; }
+    label.field { display: block; margin-bottom: 16px; }
+    label.field > span { display: block; margin-bottom: 8px; font-weight: 600; }
+    input[type=text], textarea, select {
+      width: 100%; padding: 14px 16px; font-size: 1rem; border-radius: 10px;
+      border: 1px solid var(--line); background: #0f172a; color: var(--text);
+    }
+    textarea { min-height: 72px; resize: vertical; }
+    .hint { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
+    .platforms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .plat {
+      padding: 16px; border-radius: 12px; border: 2px solid var(--line); background: #0f172a;
+      cursor: pointer; text-align: center; font-size: 1.05rem; font-weight: 600;
+      transition: border-color .15s, background .15s;
+    }
+    .plat.active { border-color: var(--accent); background: #172554; }
+    .budgets { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+    .budget {
+      padding: 10px 16px; border-radius: 999px; border: 1px solid var(--line); background: #0f172a;
+      cursor: pointer; font-size: 0.95rem;
+    }
+    .budget.active { border-color: var(--accent2); background: #14532d; color: #dcfce7; }
+    .btn-main {
+      width: 100%; margin-top: 8px; padding: 16px; font-size: 1.15rem; font-weight: 700;
+      border: none; border-radius: 12px; cursor: pointer; color: #fff; background: var(--accent2);
+    }
+    .btn-main:hover { filter: brightness(1.08); }
+    .btn-main:disabled { opacity: 0.6; cursor: not-allowed; }
+    .msg { margin-top: 14px; padding: 12px 14px; border-radius: 10px; display: none; }
+    .msg.show { display: block; }
+    .msg.ok { background: #14532d; color: #dcfce7; }
+    .msg.err { background: #450a0a; color: #fecaca; }
+    .menu { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .menu a {
+      display: block; text-decoration: none; color: inherit; background: var(--card);
+      border: 1px solid var(--line); border-radius: 14px; padding: 18px 16px;
+    }
+    .menu a:hover { border-color: #475569; }
+    .menu .icon { font-size: 1.6rem; margin-bottom: 6px; }
+    .menu h3 { margin: 0 0 4px; font-size: 1rem; }
+    .menu p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+    .list { display: flex; flex-direction: column; gap: 10px; }
+    .item {
+      padding: 14px 16px; border-radius: 12px; background: #0f172a; border: 1px solid var(--line);
+    }
+    .item-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .item-title { font-weight: 600; flex: 1; }
+    .badge {
+      font-size: 0.78rem; padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+      background: #334155;
+    }
+    .badge.run { background: #1e3a8a; color: #bfdbfe; }
+    .badge.done { background: #14532d; color: #bbf7d0; }
+    .badge.fail { background: #450a0a; color: #fecaca; }
+    .item-meta { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
+    .empty { color: var(--muted); text-align: center; padding: 24px 12px; }
+    .assist { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .btn-sm {
+      padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line);
+      background: #0f172a; color: var(--text); cursor: pointer; font-size: 0.9rem;
+    }
+    details { margin-top: 24px; color: var(--muted); font-size: 0.88rem; }
+    details summary { cursor: pointer; padding: 8px 0; }
+    @media (max-width: 520px) {
+      .steps { grid-template-columns: 1fr; }
+      .menu { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>灵犀引擎</h1>
+      <p>填好信息，点一下，AI 帮您做推广</p>
+      <div class="pill"><span class="dot" id="dot"></span><span id="statusText">正在连接…</span></div>
+    </div>
+
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><b>填写推广内容</b><span>想卖什么、在哪卖</span></div>
+      <div class="step"><div class="step-num">2</div><b>点击开始推广</b><span>系统自动执行</span></div>
+      <div class="step"><div class="step-num">3</div><b>查看下方进度</b><span>随时刷新看结果</span></div>
+    </div>
+
+    <div class="panel">
+      <h2>🚀 开始新的推广</h2>
+      <label class="field">
+        <span>您想推广什么？</span>
+        <input type="text" id="goal" placeholder="例如：夏季防晒霜、儿童益智玩具、本地火锅店"/>
+        <div class="hint">用一句话说明商品或活动即可，不用写得很专业</div>
+      </label>
+      <label class="field">
+        <span>在哪个平台发布？</span>
+        <div class="platforms">
+          <div class="plat active" data-platform="douyin">📱 抖音</div>
+          <div class="plat" data-platform="xiaohongshu">📕 小红书</div>
+          <div class="plat" data-platform="shipinhao">📺 视频号</div>
+        </div>
+      </label>
+      <label class="field">
+        <span>推广预算（元）</span>
+        <div class="budgets" id="budgets">
+          <div class="budget" data-budget="1000">1000</div>
+          <div class="budget active" data-budget="3000">3000</div>
+          <div class="budget" data-budget="5000">5000</div>
+          <div class="budget" data-budget="10000">10000</div>
+        </div>
+        <input type="text" id="budgetCustom" placeholder="或输入其他金额" style="margin-top:10px"/>
+      </label>
+      <button class="btn-main" id="startBtn">开始推广</button>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="panel">
+      <h2>📋 我的推广活动</h2>
+      <div class="assist">
+        <button class="btn-sm" id="refreshList">刷新列表</button>
+      </div>
+      <div class="list" id="campaignList" style="margin-top:14px">
+        <div class="empty">加载中…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>📌 日常常用功能</h2>
+      <div class="menu">
+        <a href="/dashboard/publish-queue"><div class="icon">📤</div><h3>待发布内容</h3><p>看还有哪些视频等着发</p></a>
+        <a href="/dashboard/analytics"><div class="icon">💰</div><h3>赚钱效果</h3><p>看花了多少钱、赚了多少</p></a>
+        <a href="/dashboard/ad-bid"><div class="icon">📢</div><h3>广告预算设置</h3><p>调整自动加价、降价规则</p></a>
+        <a href="/dashboard/runtime"><div class="icon">⚙️</div><h3>系统状态</h3><p>检查是否在正常运行</p></a>
+      </div>
+      <div class="assist">
+        <button class="btn-sm" id="startPublish">开启自动发布助手</button>
+        <button class="btn-sm" id="startMonitor">开启内容监控</button>
+      </div>
+    </div>
+
+    <details>
+      <summary>技术人员入口（一般不用点）</summary>
+      <p style="margin-top:8px">
+        <a href="/docs" style="color:#93c5fd">API 接口文档</a>
+        · <a href="/dashboard/perception" style="color:#93c5fd">内容识别记录</a>
+      </p>
+    </details>
+  </div>
+
+  <script>
+    let platform = 'douyin';
+    let budget = 3000;
+
+    function showMsg(text, ok) {
+      const el = document.getElementById('msg');
+      el.textContent = text;
+      el.className = 'msg show ' + (ok ? 'ok' : 'err');
+    }
+
+    document.querySelectorAll('.plat').forEach(el => {
+      el.onclick = () => {
+        document.querySelectorAll('.plat').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        platform = el.dataset.platform;
+      };
+    });
+
+    document.querySelectorAll('.budget').forEach(el => {
+      el.onclick = () => {
+        document.querySelectorAll('.budget').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        budget = Number(el.dataset.budget);
+        document.getElementById('budgetCustom').value = '';
+      };
+    });
+
+    document.getElementById('budgetCustom').addEventListener('input', e => {
+      const v = Number(String(e.target.value).replace(/[^0-9.]/g, ''));
+      if (v > 0) {
+        document.querySelectorAll('.budget').forEach(x => x.classList.remove('active'));
+        budget = v;
+      }
+    });
+
+    async function loadHealth() {
+      const dot = document.getElementById('dot');
+      const text = document.getElementById('statusText');
+      try {
+        const r = await fetch('/api/health');
+        const j = await r.json();
+        if (j.ok) {
+          dot.className = 'dot ok';
+          text.textContent = '系统已就绪，可以开始推广';
+        } else {
+          dot.className = 'dot warn';
+          text.textContent = '系统状态异常，请联系技术人员';
+        }
+      } catch (e) {
+        dot.className = 'dot';
+        text.textContent = '未连接上系统，请双击「启动灵犀引擎.bat」';
+      }
+    }
+
+    function badgeClass(status) {
+      if (status === 'completed') return 'badge done';
+      if (status === 'failed') return 'badge fail';
+      return 'badge run';
+    }
+
+    async function loadCampaigns() {
+      const box = document.getElementById('campaignList');
+      try {
+        const r = await fetch('/campaigns?limit=10');
+        const j = await r.json();
+        const rows = j.campaigns || [];
+        if (!rows.length) {
+          box.innerHTML = '<div class="empty">还没有推广记录，填好上面信息点「开始推广」即可</div>';
+          return;
+        }
+        box.innerHTML = rows.map(row => {
+          const roi = row.current_roi != null ? ` · 回报 ${Number(row.current_roi).toFixed(2)}` : '';
+          const time = row.updated_at ? new Date(row.updated_at * 1000).toLocaleString() : '';
+          return `<div class="item">
+            <div class="item-top">
+              <div class="item-title">${row.goal || '推广活动'}</div>
+              <span class="${badgeClass(row.status)}">${row.status_label || row.status}</span>
+            </div>
+            <div class="item-meta">${row.platform_label || row.platform} · 预算 ${row.budget || '-'} 元${roi}<br/>更新时间 ${time}</div>
+          </div>`;
+        }).join('');
+      } catch (e) {
+        box.innerHTML = '<div class="empty">加载失败，请点「刷新列表」重试</div>';
+      }
+    }
+
+    document.getElementById('startBtn').onclick = async () => {
+      const goal = document.getElementById('goal').value.trim();
+      if (!goal) {
+        showMsg('请先填写「您想推广什么」', false);
+        document.getElementById('goal').focus();
+        return;
+      }
+      const custom = document.getElementById('budgetCustom').value.trim();
+      const finalBudget = custom ? Number(custom.replace(/[^0-9.]/g, '')) : budget;
+      if (!finalBudget || finalBudget <= 0) {
+        showMsg('请选择或填写推广预算', false);
+        return;
+      }
+      const btn = document.getElementById('startBtn');
+      btn.disabled = true;
+      btn.textContent = '正在启动，请稍候…';
+      try {
+        const r = await fetch('/campaigns/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ goal, platform, budget: finalBudget, sync: false })
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.detail || '启动失败');
+        showMsg('✅ 已提交！AI 正在处理，请在下方「我的推广活动」查看进度', true);
+        document.getElementById('goal').value = '';
+        loadCampaigns();
+      } catch (e) {
+        showMsg('❌ ' + (e.message || '启动失败，请联系技术人员'), false);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '开始推广';
+      }
+    };
+
+    document.getElementById('refreshList').onclick = loadCampaigns;
+
+    document.getElementById('startPublish').onclick = async () => {
+      try {
+        await fetch('/api/publish/queue/start', { method: 'POST' });
+        showMsg('✅ 已尝试开启自动发布助手', true);
+      } catch (e) {
+        showMsg('开启失败，请到「系统状态」页面查看', false);
+      }
+    };
+
+    document.getElementById('startMonitor').onclick = async () => {
+      try {
+        await fetch('/api/monitor/post-publish/start', { method: 'POST' });
+        showMsg('✅ 已尝试开启内容监控', true);
+      } catch (e) {
+        showMsg('开启失败，请到「系统状态」页面查看', false);
+      }
+    };
+
+    loadHealth();
+    loadCampaigns();
+    setInterval(loadCampaigns, 15000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+[Unit]
+Description=五层 AI 智能体矩阵 API 服务
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=matrix
+Group=matrix
+WorkingDirectory=/opt/ai-agent-matrix
+EnvironmentFile=-/etc/ai-agent-matrix/env
+ExecStart=/usr/bin/python3 api_server.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/ai-agent-matrix/api.log
+StandardError=append:/var/log/ai-agent-matrix/api.log
+
+# 资源限制（可按需调整）
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>运维中心 — 运行时 & 联调 Runbook</title>
+  <style>
+    :root { --bg:#0f1419; --card:#1a2332; --text:#e7ecf3; --muted:#8b9cb3; --ok:#22c55e; --bad:#f87171; --warn:#fbbf24; }
+    body { font-family: system-ui,sans-serif; background:var(--bg); color:var(--text); margin:0; padding:24px; }
+    .nav a { color:#93c5fd; margin-right:16px; }
+    h1 { margin:0 0 4px; }
+    .sub { color:var(--muted); margin-bottom:16px; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:12px; margin:16px 0; }
+    .card { background:var(--card); border-radius:10px; padding:14px; border:1px solid #243044; }
+    .card h3 { margin:0 0 6px; font-size:0.8rem; color:var(--muted); }
+    .card .val { font-size:1.35rem; font-weight:600; }
+    .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media(max-width:900px){ .grid2 { grid-template-columns:1fr; } }
+    .panel { background:var(--card); border-radius:10px; padding:16px; margin-bottom:16px; }
+    .panel h2 { margin:0 0 12px; font-size:1rem; }
+    .row { display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-bottom:1px solid #243044; font-size:0.88rem; }
+    .row:last-child { border-bottom:none; }
+    .dot { width:10px; height:10px; border-radius:50%; margin-top:5px; flex-shrink:0; }
+    .dot.ok { background:var(--ok); } .dot.bad { background:var(--bad); } .dot.skip { background:#64748b; }
+    .cmd { font-family:ui-monospace,monospace; font-size:0.78rem; color:#cbd5e1; background:#0f172a; padding:6px 8px; border-radius:6px; margin-top:4px; word-break:break-all; }
+    .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+    button { background:#3b82f6; color:#fff; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; }
+    button.secondary { background:#334155; }
+    .phase { color:#93c5fd; font-weight:600; margin:12px 0 6px; font-size:0.9rem; }
+    .mono { font-family:ui-monospace,monospace; font-size:0.78rem; color:var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="nav"><a href="/dashboard/runtime">← 返回简易系统状态</a><a href="/dashboard">首页</a><a href="/dashboard/ad-bid">广告预算</a><a href="/dashboard/perception">识别记录</a><a href="/dashboard/publish-queue">待发布</a><a href="/dashboard/analytics">赚钱效果</a><a href="/dashboard/runtime">系统状态</a></div>
+  <h1>运维中心</h1>
+  <p class="sub">API 健康 · Worker 状态 · 登录态 · Runbook 检查 · 生产 E2E 联调指南</p>
+  <div class="toolbar">
+    <input id="orgFilter" list="orgList" placeholder="org_id 过滤（空=全部）" style="padding:8px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e7ecf3;min-width:180px"/>
+    <datalist id="orgList"></datalist>
+    <button id="refresh">刷新</button>
+    <button id="pollMonitor" class="secondary">立即轮询监控</button>
+    <button id="startMonitor" class="secondary">启动监控 Worker</button>
+    <button id="startPublish" class="secondary">启动发布 Worker</button>
+    <span class="mono" id="live">连接中…</span>
+    <span class="mono" id="updated"></span>
+  </div>
+  <div class="cards" id="cards"></div>
+  <div class="grid2">
+    <div class="panel">
+      <h2>联调 Runbook 检查清单</h2>
+      <div id="checklist"></div>
+    </div>
+    <div class="panel">
+      <h2>登录态 / Worker 明细</h2>
+      <div id="details"></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>生产 E2E 联调手册（分步命令）</h2>
+    <div id="guide"></div>
+  </div>
+  <script>
+    function dot(ok, skipped) {
+      if (skipped) return 'skip';
+      return ok ? 'ok' : 'bad';
+    }
+    function applyDashboard(j) {
+      document.getElementById('updated').textContent = '更新 ' + new Date().toLocaleTimeString()
+        + (j.org_id ? (' · org=' + j.org_id) : '');
+      const orgs = (j.org_catalog && j.org_catalog.orgs) || [];
+      document.getElementById('orgList').innerHTML = orgs.map(o => `<option value="${o}">`).join('');
+      const cards = j.cards || [];
+      document.getElementById('cards').innerHTML = cards.map(c =>
+        `<div class="card"><h3>${c.label}</h3><div class="val ${c.ok?'ok':'bad'}">${c.value}</div></div>`
+      ).join('');
+      const cl = j.runbook_checklist || [];
+      document.getElementById('checklist').innerHTML = cl.length ? cl.map(s =>
+        `<div class="row"><span class="dot ${dot(s.ok,s.skipped)}"></span><div><strong>${s.step}</strong>${s.skipped?' <span class="mono">(skip)</span>':''}<br><span class="mono">${s.detail||''}</span></div></div>`
+      ).join('') : '<p class="sub">暂无</p>';
+      const st = j.storage || {};
+      const rt = j.runtime || {};
+      const w = rt.workers || {};
+      const oq = j.org_queue || {};
+      const om = j.org_monitor || {};
+      let orgRows = '';
+      if (j.org_isolation) {
+        orgRows = `<div class="row"><span class="dot ok"></span><div>Org 队列<br><span class="mono">到期 ${oq.queued_due_now||0} · 总计 ${oq.total||0} · runs ${oq.unique_runs||0}</span></div></div>` +
+          `<div class="row"><span class="dot ok"></span><div>Org 监控<br><span class="mono">pending ${om.pending||0} · ok ${om.ok||0} · 下架 ${om.takedown_reedit||0}</span></div></div>`;
+      }
+      const ow = j.org_webhook || {};
+      if (ow.org_id) {
+        orgRows += `<div class="row"><span class="dot ${ow.configured?'ok':'bad'}"></span><div>Org Webhook (${ow.org_id})<br><span class="mono">review=${ow.review_webhook} alert=${ow.alert_webhook} runbook=${ow.runbook_webhook}</span></div></div>`;
+      }
+      const targets = (st.targets||[]).map(t =>
+        `<div class="row"><span class="dot ${t.valid?'ok':'bad'}"></span><div>${t.label||t.id}<br><span class="mono">${t.path||''}</span></div></div>`
+      ).join('');
+      const workerRows = [
+        ['发布队列', w.publish_queue],
+        ['完播监控', w.post_publish_monitor],
+        ['感知调度', w.perception_scheduler],
+      ].map(([name, row]) =>
+        `<div class="row"><span class="dot ${row&&row.enabled?'ok':'bad'}"></span><div>${name}<br><span class="mono">${row?JSON.stringify({enabled:row.enabled,thread:row.thread_alive,pending:row.pending_count}).slice(0,80):'—'}</span></div></div>`
+      ).join('');
+      document.getElementById('details').innerHTML = orgRows + workerRows + targets;
+      const guide = j.guide || [];
+      document.getElementById('guide').innerHTML = guide.map(ph =>
+        `<div class="phase">${ph.phase}</div>` +
+        (ph.steps||[]).map(s =>
+          `<div class="row"><span class="dot ok"></span><div><strong>${s.title}</strong><div class="cmd">${s.command||''}</div>${s.alt_command?('<div class="cmd">'+s.alt_command+'</div>'):''}<span class="mono">验证: ${s.verify||''}</span></div></div>`
+        ).join('')
+      ).join('');
+    }
+    async function load() {
+      const org = document.getElementById('orgFilter').value.trim();
+      const q = new URLSearchParams({ platform: 'douyin' });
+      if (org) q.set('org_id', org);
+      const r = await fetch('/api/dashboard/runtime?' + q.toString());
+      applyDashboard(await r.json());
+    }
+    let ws;
+    function connectWs() {
+      const org = document.getElementById('orgFilter').value.trim();
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      const q = new URLSearchParams({ platform: 'douyin' });
+      if (org) q.set('org_id', org);
+      if (ws) try { ws.close(); } catch(e) {}
+      ws = new WebSocket(`${proto}://${location.host}/ws/dashboard/runtime?` + q.toString());
+      ws.onopen = () => { document.getElementById('live').textContent = '● 实时推送已连接'; };
+      ws.onclose = () => { document.getElementById('live').textContent = '○ 已断开，30s 后重连'; setTimeout(connectWs, 30000); };
+      ws.onmessage = (ev) => {
+        try {
+          applyDashboard(JSON.parse(ev.data));
+          document.getElementById('live').textContent = '● 实时更新 ' + new Date().toLocaleTimeString();
+        } catch(e) {}
+      };
+    }
+    document.getElementById('refresh').onclick = () => { load(); if (ws && ws.readyState===1) ws.send('refresh'); };
+    document.getElementById('orgFilter').addEventListener('change', () => { load(); connectWs(); });
+    document.getElementById('pollMonitor').onclick = async () => { await fetch('/api/monitor/post-publish/poll', {method:'POST'}); load(); };
+    document.getElementById('startMonitor').onclick = async () => { await fetch('/api/monitor/post-publish/start', {method:'POST'}); load(); };
+    document.getElementById('startPublish').onclick = async () => { await fetch('/api/publish/queue/start', {method:'POST'}); load(); };
+    load();
+    connectWs();
+    setInterval(load, 60000);
+  </script>
+</body>
+</html>

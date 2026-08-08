@@ -1,0 +1,39 @@
+edition: 3.0.0
+name: lingxi-campaign-fc
+access: default
+
+vars:
+  region: cn-hangzhou
+  serviceName: lingxi-campaign
+  functionName: campaign-api
+
+resources:
+  lingxi_campaign_api:
+    component: fc3
+    props:
+      region: ${vars.region}
+      serviceName: ${vars.serviceName}
+      functionName: ${vars.functionName}
+      description: Lingxi Engine Campaign API (FastAPI api/routes.py)
+      runtime: python3.12
+      handler: deploy/aliyun-fc/handler.handler
+      timeout: 120
+      memorySize: 1024
+      cpu: 1
+      diskSize: 512
+      environmentVariables:
+        PYTHONPATH: /code
+        VIDEO_OUTPUT_DIR: /tmp/videos
+      code: ../..
+      triggers:
+        - triggerName: http-trigger
+          triggerType: http
+          triggerConfig:
+            authType: anonymous
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS

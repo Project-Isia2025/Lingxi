@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: lingxi-engine
+    orgId: 1
+    folder: Lingxi Engine
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

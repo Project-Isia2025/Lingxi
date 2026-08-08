@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>灵犀引擎 · Agent 工作流</title>
+  <style>
+    :root {
+      --bg:#070b14; --panel:#111827; --card:#1a2332; --text:#f8fafc; --muted:#94a3b8;
+      --accent:#6366f1; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --line:#243044;
+      --human:#a78bfa; --glow:rgba(99,102,241,.35);
+    }
+    * { box-sizing:border-box; }
+    body {
+      font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+      background:radial-gradient(1200px 600px at 10% -10%, #1e1b4b 0%, transparent 55%), var(--bg);
+      color:var(--text); margin:0; padding:20px 16px 56px; font-size:16px;
+    }
+    .wrap { max-width:920px; margin:0 auto; }
+    .hero h1 { margin:0 0 8px; font-size:1.65rem; }
+    .hero p { margin:0; color:var(--muted); line-height:1.65; }
+    .philosophy {
+      display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin:20px 0 10px;
+    }
+    .pillar {
+      background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 12px;
+      text-align:center;
+    }
+    .pillar .icon { font-size:1.5rem; margin-bottom:4px; }
+    .pillar b { display:block; font-size:1rem; }
+    .pillar small { color:var(--accent); font-size:0.82rem; }
+    .pillar span { display:block; font-size:0.78rem; color:var(--muted); margin-top:6px; line-height:1.4; }
+    .human-row {
+      display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;
+    }
+    .human {
+      background:linear-gradient(135deg,#3b0764,#1e1b4b); border:1px solid #6d28d9;
+      border-radius:14px; padding:14px; text-align:center;
+    }
+    .human b { color:var(--human); display:block; margin-bottom:4px; }
+    .human span { font-size:0.82rem; color:#ddd6fe; line-height:1.45; }
+    .pill-row { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px; }
+    .pill {
+      padding:8px 12px; border-radius:999px; background:var(--panel); border:1px solid var(--line);
+      font-size:0.88rem; color:#cbd5e1;
+    }
+    .panel {
+      background:var(--panel); border:1px solid var(--line); border-radius:16px;
+      padding:20px 18px; margin-bottom:18px;
+    }
+    .panel h2 { margin:0 0 14px; font-size:1.1rem; display:flex; align-items:center; gap:8px; }
+    .badge-count { background:var(--bad); color:#fff; font-size:0.75rem; padding:2px 8px; border-radius:999px; }
+    .decision {
+      background:linear-gradient(135deg,#312e81,#1e1b4b); border:1px solid #4338ca;
+      border-radius:14px; padding:18px; margin-bottom:12px;
+    }
+    .decision h3 { margin:0 0 6px; font-size:1.05rem; }
+    .decision .meta { color:#c7d2fe; font-size:0.85rem; margin-bottom:8px; }
+    .decision .summary { color:#e0e7ff; line-height:1.55; margin-bottom:12px; }
+    .decision .hint { font-size:0.82rem; color:#a5b4fc; margin-bottom:12px; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; }
+    .btn { border:none; border-radius:10px; padding:12px 18px; font-size:0.95rem; font-weight:600; cursor:pointer; color:#fff; }
+    .btn-primary { background:var(--ok); }
+    .btn-danger { background:var(--bad); }
+    .btn-accent { background:var(--accent); width:100%; padding:16px; font-size:1.05rem; margin-top:8px; }
+    .btn-secondary { background:#334155; font-size:0.88rem; padding:10px 14px; }
+    .btn-muted { background:#475569; font-size:0.82rem; padding:8px 12px; }
+    .btn:disabled { opacity:.55; cursor:not-allowed; }
+    .form-grid { display:grid; gap:14px; }
+    label span { display:block; margin-bottom:6px; font-weight:600; font-size:0.92rem; }
+    input[type=text] {
+      width:100%; padding:14px; border-radius:10px; border:1px solid var(--line);
+      background:#0f172a; color:var(--text); font-size:1rem;
+    }
+    .platforms { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    .plat {
+      padding:14px 8px; text-align:center; border-radius:12px; border:2px solid var(--line);
+      background:#0f172a; cursor:pointer; font-weight:600;
+    }
+    .plat.active { border-color:var(--accent); }
+    .budgets { display:flex; flex-wrap:wrap; gap:8px; }
+    .budget { padding:8px 14px; border-radius:999px; border:1px solid var(--line); cursor:pointer; background:#0f172a; }
+    .budget.active { border-color:var(--ok); background:#14532d; }
+    .run-card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:12px; }
+    .run-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; margin-bottom:12px; }
+    .run-title { font-weight:700; font-size:1rem; }
+    .status-tag { font-size:0.78rem; padding:4px 10px; border-radius:999px; background:#334155; white-space:nowrap; }
+    .status-tag.run { background:#1e3a8a; color:#bfdbfe; }
+    .status-tag.wait { background:#713f12; color:#fde68a; }
+    .status-tag.done { background:#14532d; color:#bbf7d0; }
+    .macro { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:10px; }
+    .macro-step {
+      text-align:center; padding:10px 6px; border-radius:10px; border:1px solid var(--line); background:#0f172a;
+      font-size:0.82rem;
+    }
+    .macro-step.done { border-color:#166534; background:#052e16; color:#bbf7d0; }
+    .macro-step.active { border-color:var(--accent); box-shadow:0 0 10px var(--glow); animation:pulse 1.6s infinite; }
+    .macro-step.wait_human { border-color:var(--human); background:#3b0764; color:#e9d5ff; }
+    .macro-step.error { border-color:var(--bad); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.75} }
+    .empty { color:var(--muted); text-align:center; padding:20px 10px; }
+    .toast { display:none; margin-bottom:14px; padding:12px 14px; border-radius:10px; background:#1e3a8a; }
+    .toast.show { display:block; }
+    .fallback { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
+    details { color:var(--muted); font-size:0.88rem; }
+    details summary { cursor:pointer; padding:8px 0; }
+    details a { color:#93c5fd; }
+    @media(max-width:640px){
+      .philosophy, .macro { grid-template-columns:1fr; }
+      .human-row { grid-template-columns:1fr; }
+      .platforms { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>灵犀引擎</h1>
+      <p id="tagline">AI 负责感知、决策、执行；人类负责点头确认与应急兜底</p>
+    </div>
+
+    <div class="philosophy" id="aiPillars"></div>
+    <div class="human-row" id="humanRoles"></div>
+
+    <div class="pill-row" id="stats"></div>
+    <div class="toast" id="toast"></div>
+
+    <div class="panel" id="decisionPanel" style="display:none">
+      <h2>👤 请您点头确认 <span class="badge-count" id="decisionCount">0</span>
+        <span id="pendingTotalHint" style="font-size:0.78rem;color:#c7d2fe;font-weight:normal"></span>
+      </h2>
+      <p style="color:var(--muted);font-size:0.9rem;margin:-6px 0 14px">AI 已自动完成分析，此处是唯一需要您日常操作的环节</p>
+      <div style="display:flex;justify-content:flex-end;margin:-6px 0 10px">
+        <button class="btn btn-muted" id="clearPendingBtn" type="button">清空全部待确认</button>
+      </div>
+      <div id="decisions"></div>
+    </div>
+
+    <div class="panel">
+      <h2>🎯 告诉 AI 要推广什么</h2>
+      <p style="color:var(--muted);font-size:0.92rem;margin:-6px 0 14px">填一句话即可，后面感知→决策→执行全部由 AI 自动完成</p>
+      <div class="form-grid">
+        <label><span>推广目标</span>
+          <input type="text" id="goal" placeholder="例如：夏季防晒霜、儿童益智玩具"/>
+        </label>
+        <label><span>目标平台</span>
+          <div class="platforms">
+            <div class="plat active" data-platform="douyin">📱 抖音</div>
+            <div class="plat" data-platform="xiaohongshu">📕 小红书</div>
+            <div class="plat" data-platform="shipinhao">📺 视频号</div>
+          </div>
+        </label>
+        <label><span>预算（元）</span>
+          <div class="budgets" id="budgets">
+            <div class="budget" data-budget="1000">1000</div>
+            <div class="budget active" data-budget="3000">3000</div>
+            <div class="budget" data-budget="5000">5000</div>
+            <div class="budget" data-budget="10000">10000</div>
+          </div>
+        </label>
+        <button class="btn btn-accent" id="startBtn">交给 AI 自动执行</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>🤖 AI 运行中</h2>
+      <div id="activeRuns"><div class="empty">暂无任务 — AI 在待命</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>📁 已完成</h2>
+      <div style="display:flex;justify-content:flex-end;margin:-6px 0 10px">
+        <button class="btn btn-muted" id="cleanupBtn" type="button">清空全部已完成</button>
+      </div>
+      <div id="recentRuns"><div class="empty">暂无记录</div></div>
+    </div>
+
+    <details open>
+      <summary>🛟 应急兜底（仅异常时使用）</summary>
+      <p style="margin:10px 0;color:var(--muted);font-size:0.9rem;line-height:1.55">
+        正常情况下您不需要点这里。只有当 AI 长时间无进展、或您想强制终止任务时才使用。
+      </p>
+      <div class="fallback">
+        <button class="btn btn-secondary" id="refreshBtn">刷新状态</button>
+        <button class="btn btn-secondary" id="cancelRunBtn">终止当前任务</button>
+        <a href="/dashboard/runtime" class="btn btn-secondary" style="text-decoration:none;display:inline-block">查看系统状态</a>
+        <a href="/dashboard/analytics" class="btn btn-secondary" style="text-decoration:none;display:inline-block">查看效果数据</a>
+      </div>
+      <p style="margin-top:12px;font-size:0.82rem">
+        <a href="/dashboard/rpa">影刀 RPA 对接向导</a> ·
+        <a href="/dashboard/engineering">工程师技术栈对照</a> ·
+        <a href="/docs">API 文档</a>
+      </p>
+    </details>
+  </div>
+
+  <script>
+    let platform = 'douyin', budget = 3000, lastActiveRunId = '';
+
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 4500);
+    }
+
+    document.querySelectorAll('.plat').forEach(el => {
+      el.onclick = () => {
+        document.querySelectorAll('.plat').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        platform = el.dataset.platform;
+      };
+    });
+    document.querySelectorAll('.budget').forEach(el => {
+      el.onclick = () => {
+        document.querySelectorAll('.budget').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        budget = Number(el.dataset.budget);
+      };
+    });
+
+    function renderMacro(macro) {
+      return (macro || []).map(s =>
+        `<div class="macro-step ${s.state}">${s.icon || ''} ${s.label}${s.state==='wait_human'?' · 等您点头':''}</div>`
+      ).join('');
+    }
+
+    function statusClass(status) {
+      if (['awaiting_review','pending_review','awaiting_decision'].includes(status)) return 'status-tag wait';
+      if (status === 'completed') return 'status-tag done';
+      return 'status-tag run';
+    }
+
+    function renderRunCard(run) {
+      if (run.run_id) lastActiveRunId = run.run_id;
+      const roi = run.roi_score != null ? ` · ROI ${Number(run.roi_score).toFixed(2)}` : '';
+      const cancelBtn = run.status !== 'completed' && run.status !== 'cancelled'
+        ? `<button class="btn btn-secondary" style="margin-top:10px" onclick="cancelRun('${run.run_id}')">应急终止</button>` : '';
+      const deleteBtn = ['completed','cancelled','failed'].includes(run.status)
+        ? `<button class="btn btn-muted" style="margin-top:10px;margin-left:8px" onclick="deleteRun('${run.run_id}')">删除记录</button>` : '';
+      return `<div class="run-card">
+        <div class="run-head">
+          <div class="run-title">${run.title} · ${run.platform_label}</div>
+          <span class="${statusClass(run.status)}">${run.status_label}</span>
+        </div>
+        <div class="macro">${renderMacro(run.macro_pipeline)}</div>
+        <div style="color:var(--muted);font-size:0.85rem">${run.stage_label || ''}${roi}</div>
+        ${cancelBtn}${deleteBtn}
+      </div>`;
+    }
+
+    function apiDetailMessage(j) {
+      const d = j && j.detail;
+      if (!d) return '';
+      if (typeof d === 'string') return d;
+      return d.error || d.message || JSON.stringify(d);
+    }
+
+    async function apiFetch(url, init) {
+      const r = await fetch(url, init);
+      let j = {};
+      try { j = await r.json(); } catch (_e) {}
+      if (!r.ok) {
+        const msg = apiDetailMessage(j) || j.message || j.error || `HTTP ${r.status}`;
+        throw new Error(msg);
+      }
+      return j;
+    }
+
+    async function decide(id, action, token) {
+      const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+      try {
+        if (action === 'reject') {
+          const reason = prompt('可选：说明原因（AI 会学习）', id.startsWith('dec-') ? '不同意该方案' : '需要修改');
+          if (reason === null) return;
+          const j = await apiFetch(`/api/workflow/decisions/${id}/reject${qs}`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ reason: reason || '不同意' })
+          });
+          toast(j.message || '已处理');
+        } else {
+          const j = await apiFetch(`/api/workflow/decisions/${id}/approve${qs}`, { method:'POST' });
+          toast(j.message || '已点头确认，AI 继续执行');
+        }
+      } catch (e) {
+        toast('❌ ' + (e.message || '操作失败'));
+      }
+      loadOverview();
+    }
+
+    async function cancelRun(runId) {
+      if (!runId || !confirm('确定要应急终止这个任务吗？')) return;
+      const r = await fetch(`/api/workflow/runs/${runId}/cancel`, { method:'POST' });
+      const j = await r.json();
+      toast(j.message || (r.ok ? '已终止' : '终止失败'));
+      loadOverview();
+    }
+
+    async function deleteRun(runId) {
+      if (!runId || !confirm('确定删除这条历史任务记录吗？')) return;
+      try {
+        const j = await apiFetch(`/api/workflow/runs/${runId}`, { method:'DELETE' });
+        toast(j.message || '已删除');
+      } catch (e) {
+        toast('❌ ' + (e.message || '删除失败'));
+      }
+      loadOverview();
+    }
+
+    async function removeDecision(id) {
+      if (!id || !confirm('确定从列表移除此项吗？（不会触发发布）')) return;
+      try {
+        const j = await apiFetch(`/api/workflow/decisions/${id}`, { method:'DELETE' });
+        toast(j.message || '已移除');
+      } catch (e) {
+        toast('❌ ' + (e.message || '移除失败'));
+      }
+      loadOverview();
+    }
+
+    async function clearAllPending() {
+      const total = Number(document.getElementById('decisionCount').textContent || 0);
+      if (!total) { toast('当前没有待确认项'); return; }
+      if (!confirm(`确定清空全部 ${total} 条待确认任务吗？此操作不可恢复。`)) return;
+      try {
+        const j = await apiFetch('/api/workflow/decisions/clear-pending', { method:'POST' });
+        toast(j.message || `已清空 ${j.deleted || 0} 条`);
+      } catch (e) {
+        toast('❌ ' + (e.message || '清空失败'));
+      }
+      loadOverview();
+    }
+
+    async function cleanupHistory() {
+      const total = window.__completedRunsTotal || 0;
+      if (!total) { toast('当前没有已完成任务'); return; }
+      if (!confirm(`确定清空全部 ${total} 条已完成任务吗？此操作不可恢复。`)) return;
+      try {
+        const j = await apiFetch('/api/workflow/runs/clear-completed', { method:'POST' });
+        toast(j.message || `已清空 ${j.deleted || 0} 条`);
+      } catch (e) {
+        toast('❌ ' + (e.message || '清空失败'));
+      }
+      loadOverview();
+    }
+
+    function renderPhilosophy(j) {
+      const pillars = j.ai_pillars || j.agents || [];
+      document.getElementById('aiPillars').innerHTML = pillars.map(p =>
+        `<div class="pillar"><div class="icon">${p.id==='perceive'?'📡':p.id==='decide'?'♟️':'🚀'}</div>
+         <b>${p.role}</b><small>${p.subtitle || ''}</small><span>${p.desc}</span></div>`
+      ).join('');
+      const human = j.human_roles || [];
+      document.getElementById('humanRoles').innerHTML = human.map(h =>
+        `<div class="human"><b>${h.role}</b><span>${h.desc}</span></div>`
+      ).join('');
+    }
+
+    function renderDecisions(items) {
+      const panel = document.getElementById('decisionPanel');
+      const box = document.getElementById('decisions');
+      if (!items.length) { panel.style.display = 'none'; return; }
+      panel.style.display = 'block';
+      document.getElementById('decisionCount').textContent = items.length;
+      const total = window.__pendingReviewTotal || items.length;
+      const hint = document.getElementById('pendingTotalHint');
+      hint.textContent = total > items.length ? `（共 ${total} 条，显示 ${items.length} 条）` : '';
+      box.innerHTML = items.map(d => {
+        const ok = (d.actions||[]).find(a=>a.id==='approve')?.label || '点头通过';
+        const no = (d.actions||[]).find(a=>a.id==='reject')?.label || '拒绝';
+        return `<div class="decision">
+          <h3>${d.type_label}：${d.title}</h3>
+          <div class="meta">任务 ${d.run_id||'—'}</div>
+          <div class="summary">${d.summary||''}</div>
+          <div class="hint">${d.hint||''}</div>
+          <div class="actions">
+            <button class="btn btn-primary" onclick="decide('${d.decision_id}','approve','${d.token||''}')">👍 ${ok}</button>
+            <button class="btn btn-danger" onclick="decide('${d.decision_id}','reject','${d.token||''}')">👎 ${no}</button>
+            <button class="btn btn-muted" onclick="removeDecision('${d.decision_id}')">🗑 移除</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    async function loadOverview() {
+      try {
+        const r = await fetch('/api/workflow/overview');
+        const j = await r.json();
+        document.getElementById('tagline').textContent = j.tagline || j.philosophy?.summary || '';
+        renderPhilosophy(j);
+        window.__pendingReviewTotal = j.pending_review_total || (j.decisions || []).length;
+        window.__completedRunsTotal = j.completed_runs_total || (j.recent_runs || []).length;
+        document.getElementById('stats').innerHTML = `
+          <div class="pill">🤖 AI 运行 ${j.active_count||0} 条</div>
+          <div class="pill">👤 等您点头 ${j.pending_review_total || j.decision_count||0} 项</div>`;
+        renderDecisions(j.decisions || []);
+        const active = j.active_runs || [];
+        document.getElementById('activeRuns').innerHTML = active.length
+          ? active.map(renderRunCard).join('')
+          : '<div class="empty">AI 在待命。告诉它推广什么，就会自动开始感知→决策→执行</div>';
+        const recent = j.recent_runs || [];
+        document.getElementById('recentRuns').innerHTML = recent.length
+          ? recent.map(renderRunCard).join('')
+          : '<div class="empty">完成的任务会显示在这里</div>';
+      } catch (e) {
+        toast('无法连接服务，请双击「启动灵犀引擎.bat」');
+      }
+    }
+
+    document.getElementById('startBtn').onclick = async () => {
+      const goal = document.getElementById('goal').value.trim();
+      if (!goal) { toast('请先填写推广目标'); return; }
+      const btn = document.getElementById('startBtn');
+      btn.disabled = true;
+      btn.textContent = 'AI 启动中…';
+      try {
+        const r = await fetch('/api/workflow/start', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ goal, platform, budget, enable_replan: true, max_iterations: 3 })
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.detail || '启动失败');
+        toast('✅ ' + (j.message || 'AI 已开始自动执行'));
+        document.getElementById('goal').value = '';
+        loadOverview();
+      } catch (e) {
+        toast('❌ ' + (e.message || '启动失败'));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '交给 AI 自动执行';
+      }
+    };
+
+    document.getElementById('refreshBtn').onclick = loadOverview;
+    document.getElementById('cleanupBtn').onclick = cleanupHistory;
+    document.getElementById('clearPendingBtn').onclick = clearAllPending;
+    document.getElementById('cancelRunBtn').onclick = () => {
+      if (lastActiveRunId) cancelRun(lastActiveRunId);
+      else toast('当前没有可终止的运行中任务');
+    };
+
+    loadOverview();
+    setInterval(loadOverview, 5000);
+  </script>
+</body>
+</html>

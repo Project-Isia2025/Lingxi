@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "commerce-agent-api"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["matrix-api:9200"]
+
+  - job_name: "qdrant"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["qdrant:6333"]
+
+  # Redis / Postgres 需独立 exporter（redis_exporter、postgres_exporter），
+  # 不可直接 scrape 6379/5432 端口。

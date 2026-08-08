@@ -1,0 +1,48 @@
+replicaCount: 1
+
+image:
+  repository: ai-agent-matrix
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: NodePort
+  port: 9200
+  nodePort: 30200
+
+persistence:
+  enabled: true
+  size: 10Gi
+  accessMode: ReadWriteOnce
+
+config:
+  REVIEW_BASE_URL: "https://your-public-domain.com"
+  PUBLISH_QUEUE_ENABLED: "1"
+  PUBLISH_QUEUE_INTERVAL_SEC: "300"
+  PERCEPTION_SCHEDULE_ENABLED: "1"
+  POST_PUBLISH_MONITOR_ENABLED: "1"
+  COMBINED_ROI_ENABLED: "1"
+  SLICE_APPROVE_MATRIX_PUBLISH: "1"
+  TAKEDOWN_ENABLED: "0"
+
+secret:
+  enabled: false
+  name: ai-agent-matrix-env
+
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 250m
+  limits:
+    memory: 2Gi
+    cpu: 2000m
+
+probes:
+  liveness:
+    path: /api/health
+    initialDelaySeconds: 25
+    periodSeconds: 30
+  readiness:
+    path: /api/health/ready
+    initialDelaySeconds: 10
+    periodSeconds: 10

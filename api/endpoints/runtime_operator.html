@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>系统状态 · 灵犀引擎</title>
+  <style>
+    :root {
+      --bg:#0b1220; --card:#151f32; --text:#f1f5f9; --muted:#94a3b8;
+      --ok:#16a34a; --warn:#f59e0b; --bad:#ef4444; --line:#243044; --accent:#2563eb;
+    }
+    * { box-sizing:border-box; }
+    body {
+      font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+      background:var(--bg); color:var(--text); margin:0; padding:20px 16px 48px; font-size:16px;
+    }
+    .wrap { max-width:720px; margin:0 auto; }
+    .nav { margin-bottom:20px; font-size:0.9rem; }
+    .nav a { color:#93c5fd; text-decoration:none; margin-right:14px; }
+    h1 { margin:0 0 6px; font-size:1.5rem; }
+    .sub { color:var(--muted); margin:0 0 20px; }
+    .banner {
+      border-radius:16px; padding:20px 18px; margin-bottom:20px; border:1px solid var(--line);
+    }
+    .banner.ok { background:#14532d; border-color:#166534; }
+    .banner.warn { background:#422006; border-color:#92400e; }
+    .banner h2 { margin:0 0 8px; font-size:1.2rem; }
+    .banner p { margin:0; line-height:1.6; opacity:0.95; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px; }
+    .btn {
+      padding:12px 18px; border:none; border-radius:10px; cursor:pointer; font-size:0.95rem;
+      background:var(--accent); color:#fff; font-weight:600;
+    }
+    .btn.secondary { background:#334155; font-weight:500; }
+    .btn:disabled { opacity:0.6; cursor:not-allowed; }
+    .list { display:flex; flex-direction:column; gap:14px; }
+    .item {
+      background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 16px;
+    }
+    .item-top { display:flex; gap:12px; align-items:flex-start; }
+    .icon { font-size:1.6rem; line-height:1; }
+    .item-body { flex:1; }
+    .item-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:6px; }
+    .item-head h3 { margin:0; font-size:1.05rem; }
+    .badge {
+      font-size:0.78rem; padding:4px 10px; border-radius:999px; white-space:nowrap;
+      background:#334155;
+    }
+    .badge.ok { background:#14532d; color:#bbf7d0; }
+    .badge.bad { background:#450a0a; color:#fecaca; }
+    .desc { color:var(--muted); font-size:0.92rem; line-height:1.55; margin:0; }
+    .help {
+      margin-top:10px; padding:10px 12px; border-radius:10px; background:#0f172a;
+      color:#cbd5e1; font-size:0.88rem; line-height:1.5;
+    }
+    .item-actions { margin-top:12px; }
+    .item-actions .btn { padding:10px 16px; font-size:0.9rem; }
+    .toast {
+      display:none; margin-bottom:16px; padding:12px 14px; border-radius:10px; background:#1e3a8a;
+    }
+    .toast.show { display:block; }
+    .foot { margin-top:24px; color:var(--muted); font-size:0.85rem; line-height:1.6; }
+    .foot a { color:#93c5fd; }
+    details { margin-top:20px; color:var(--muted); font-size:0.88rem; }
+    details summary { cursor:pointer; padding:8px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="nav">
+      <a href="/dashboard">← 返回首页</a>
+      <a href="/dashboard/publish-queue">待发布</a>
+      <a href="/dashboard/analytics">赚钱效果</a>
+    </div>
+    <h1>系统状态</h1>
+    <p class="sub">帮您检查系统是否在正常工作，以及需要做什么</p>
+
+    <div class="banner ok" id="banner">
+      <h2 id="bannerTitle">正在检查…</h2>
+      <p id="bannerHint">请稍候</p>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <div class="toolbar">
+      <button class="btn" id="refresh">刷新状态</button>
+      <button class="btn secondary" id="checkNow">立即检查视频数据</button>
+    </div>
+
+    <div class="list" id="items">
+      <div class="item"><div class="desc">加载中…</div></div>
+    </div>
+
+    <div class="foot" id="footNote"></div>
+
+    <details>
+      <summary>给技术人员看的详细状态</summary>
+      <p style="margin-top:8px"><a href="/dashboard/runtime/advanced">打开技术运维面板</a></p>
+    </details>
+  </div>
+
+  <script>
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 4000);
+    }
+
+    function renderOperator(op) {
+      if (!op) return;
+      const banner = document.getElementById('banner');
+      banner.className = 'banner ' + (op.overall_level === 'ok' ? 'ok' : 'warn');
+      document.getElementById('bannerTitle').textContent = op.overall_title || '状态未知';
+      document.getElementById('bannerHint').textContent = op.overall_hint || '';
+      document.getElementById('footNote').textContent = op.updated_hint || '';
+
+      const box = document.getElementById('items');
+      const items = op.items || [];
+      box.innerHTML = items.map(item => {
+        const badgeCls = item.ok ? 'badge ok' : 'badge bad';
+        const help = item.help ? `<div class="help">💡 ${item.help}</div>` : '';
+        let action = '';
+        if (item.action && (item.always_show_action || !item.ok)) {
+          action = `<div class="item-actions"><button class="btn" data-action="${item.action}">${item.action_label || '处理'}</button></div>`;
+        }
+        return `<div class="item">
+          <div class="item-top">
+            <div class="icon">${item.icon || '•'}</div>
+            <div class="item-body">
+              <div class="item-head">
+                <h3>${item.title}</h3>
+                <span class="${badgeCls}">${item.status_text || (item.ok ? '正常' : '需处理')}</span>
+              </div>
+              <p class="desc">${item.description || ''}</p>
+              ${help}
+              ${action}
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+
+      box.querySelectorAll('[data-action]').forEach(btn => {
+        btn.onclick = () => runAction(btn.dataset.action, btn);
+      });
+    }
+
+    async function runAction(action, btn) {
+      const old = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '处理中…';
+      try {
+        if (action === 'start_publish') {
+          await fetch('/api/publish/queue/start', { method: 'POST' });
+          toast('✅ 已尝试开启自动发布，请稍等几秒后点「刷新状态」');
+        } else if (action === 'start_monitor') {
+          await fetch('/api/monitor/post-publish/start', { method: 'POST' });
+          toast('✅ 已尝试开启内容监控，请稍等几秒后点「刷新状态」');
+        } else if (action === 'open_queue') {
+          location.href = '/dashboard/publish-queue';
+          return;
+        }
+        setTimeout(load, 1500);
+      } catch (e) {
+        toast('操作失败，请联系技术人员');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = old;
+      }
+    }
+
+    async function load() {
+      try {
+        const r = await fetch('/api/dashboard/runtime?platform=douyin');
+        const j = await r.json();
+        renderOperator(j.operator);
+      } catch (e) {
+        document.getElementById('bannerTitle').textContent = '无法获取状态';
+        document.getElementById('bannerHint').textContent = '请确认已双击「启动灵犀引擎.bat」';
+        document.getElementById('items').innerHTML = '<div class="item"><p class="desc">连接失败，请重启服务后再试。</p></div>';
+      }
+    }
+
+    document.getElementById('refresh').onclick = load;
+    document.getElementById('checkNow').onclick = async () => {
+      try {
+        await fetch('/api/monitor/post-publish/poll', { method: 'POST' });
+        toast('✅ 已开始检查，稍后刷新查看结果');
+        setTimeout(load, 2000);
+      } catch (e) {
+        toast('检查失败，请联系技术人员');
+      }
+    };
+
+    load();
+    setInterval(load, 60000);
+  </script>
+</body>
+</html>

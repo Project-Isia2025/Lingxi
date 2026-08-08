@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-agent-matrix
+  labels:
+    app: ai-agent-matrix
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-agent-matrix
+  template:
+    metadata:
+      labels:
+        app: ai-agent-matrix
+    spec:
+      containers:
+        - name: matrix-api
+          image: ai-agent-matrix:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9200
+              name: http
+          envFrom:
+            - configMapRef:
+                name: ai-agent-matrix-config
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: config
+              mountPath: /app/config/local.env
+              subPath: local.env
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 9200
+            initialDelaySeconds: 25
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health/ready
+              port: 9200
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: ai-agent-matrix-data
+        - name: config
+          secret:
+            secretName: ai-agent-matrix-env
+            optional: true
