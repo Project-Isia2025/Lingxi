@@ -47,11 +47,28 @@ if (-not $GitExe) {
 }
 
 function Invoke-Git {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
-    & $GitExe @Args
-    if ($LASTEXITCODE -ne 0) {
-        throw "git $($Args -join ' ') failed with exit code $LASTEXITCODE"
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)][string[]]$Args,
+        [switch]$AllowFailure
+    )
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    & $GitExe @Args 2>&1 | Out-Null
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    if (-not $AllowFailure -and $code -ne 0) {
+        throw "git $($Args -join ' ') failed with exit code $code"
     }
+    return $code
+}
+
+function Get-GitOutput {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $out = & $GitExe @Args 2>$null
+    $ErrorActionPreference = $prev
+    return $out
 }
 
 if (-not (Test-Path (Join-Path $Root ".git"))) {
@@ -65,14 +82,13 @@ if (-not (Test-Path (Join-Path $Root ".git"))) {
 }
 
 if ($Push -and -not (Get-Command gh -ErrorAction SilentlyContinue)) {
-    Write-Host ""
-    Write-Host "ERROR: gh (GitHub CLI) not found. Install: https://cli.github.com/" -ForegroundColor Red
-    Write-Host "Or run without -Push and create PRs on GitHub web UI."
-    Write-Host ""
-    exit 1
+    Write-Warning "gh (GitHub CLI) not found. Branches will be pushed; create PRs on GitHub web UI."
+    $script:CreatePr = $false
+} else {
+    $script:CreatePr = [bool]$Push
 }
 
-$status = Invoke-Git status --porcelain
+$status = Get-GitOutput status --porcelain
 if (-not $status) {
     Write-Warning "Working tree clean. Commits may already exist; script will skip empty branches."
 }
@@ -83,11 +99,11 @@ function New-PrBranch {
         [string[]]$Paths,
         [string]$Message
     )
-    Invoke-Git checkout $BaseBranch 2>$null
+    [void](Invoke-Git checkout $BaseBranch -AllowFailure)
     if ($LASTEXITCODE -ne 0) {
-        Invoke-Git checkout -b $BaseBranch
+        [void](Invoke-Git checkout -b $BaseBranch)
     }
-    Invoke-Git checkout -B $Branch
+    [void](Invoke-Git checkout -B $Branch)
 
     $existing = @()
     foreach ($p in $Paths) {
@@ -98,16 +114,18 @@ function New-PrBranch {
         return
     }
 
-    Invoke-Git add @existing
-    Invoke-Git diff --cached --quiet
+    [void](Invoke-Git add @existing)
+    [void](Invoke-Git diff --cached --quiet -AllowFailure)
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "Skip $Branch (no staged changes)"
+        Write-Host "Skip $Branch (no staged changes vs $BaseBranch)"
         return
     }
-    Invoke-Git commit -m $Message
+    [void](Invoke-Git commit -m $Message)
     if ($Push) {
-        Invoke-Git push -u origin $Branch
-        gh pr create --title $Message --body "See docs/pr/ENGINEERING_FIXES.md"
+        [void](Invoke-Git push -u origin $Branch)
+        if ($script:CreatePr) {
+            gh pr create --title $Message --body "See docs/pr/ENGINEERING_FIXES.md"
+        }
     }
     Write-Host "OK: $Branch"
 }
