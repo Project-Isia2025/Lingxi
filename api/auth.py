@@ -51,7 +51,9 @@ def configured_admin_keys() -> list[str]:
 def extract_api_key(request: Request | WebSocket) -> str:
     allow_query = _allow_query_api_key()
     if isinstance(request, WebSocket):
-        qp = ""
+        cookie = request.cookies.get(API_AUTH_COOKIE) or ""
+        if cookie:
+            return cookie.strip()
         if allow_query:
             qp = request.query_params.get("api_key") or request.query_params.get("token") or ""
             if qp:

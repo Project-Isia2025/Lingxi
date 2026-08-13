@@ -63,8 +63,9 @@ class DouyinSearchTest(unittest.TestCase):
 
 
 class PerceptionDouyinIntegrationTest(unittest.TestCase):
+    @patch("services.rpa_ingest.fetch_rpa_competitors", return_value=([], {}))
     @patch("services.douyin.search.search_douyin")
-    def test_perception_uses_crawler(self, mock_search) -> None:
+    def test_perception_uses_crawler(self, mock_search, _mock_rpa) -> None:
         mock_search.return_value = {
             "ok": True,
             "items": [{"title": "真实抓取", "likes": 999, "url": "https://www.douyin.com/video/1", "platform": "douyin"}],

@@ -44,8 +44,8 @@ class RuntimeDashboardTest(unittest.TestCase):
         client = TestClient(app)
         r = client.get("/dashboard/runtime")
         self.assertEqual(r.status_code, 200)
-        self.assertIn("运维中心", r.text)
-        self.assertIn("联调 Runbook", r.text)
+        self.assertIn("系统状态", r.text)
+        self.assertIn("刷新状态", r.text)
 
 
 class RuntimeDashboardAcceptanceTest(unittest.TestCase):

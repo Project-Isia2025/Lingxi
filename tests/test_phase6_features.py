@@ -23,7 +23,7 @@ class AsrMemoryTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as td:
             db = Path(td) / "mem.db"
-            with patch("core.storage.DB_PATH", db):
+            with patch("core.db.DB_PATH", db), patch("core.storage.DB_PATH", db):
                 init_storage()
                 out = ingest_asr_transcript(
                     text="这是竞品视频口播的核心卖点描述",

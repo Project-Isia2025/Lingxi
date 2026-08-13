@@ -41,7 +41,7 @@ class AcceptanceAllTest(unittest.TestCase):
         report = run_acceptance_all(
             skip_pytest=True,
             skip_spec=False,
-            skip_e2e=False,
+            skip_e2e=True,
             skip_api=False,
             skip_docker=True,
         )

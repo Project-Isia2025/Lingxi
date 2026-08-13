@@ -60,6 +60,19 @@ def test_auth_login_sets_cookie(client):
         r = client.post("/api/auth/login", json={"api_key": "test-secret-key-12345"})
     assert r.status_code == 200
     assert r.json().get("ok") is True
+    assert "matrix_api_key" in (r.headers.get("set-cookie") or "").lower()
+
+
+def test_auth_cookie_allows_read_api(client):
+    with patch.dict(
+        "os.environ",
+        {"API_AUTH_ENABLED": "1", "API_AUTH_KEY": "test-secret-key-12345"},
+        clear=False,
+    ):
+        login = client.post("/api/auth/login", json={"api_key": "test-secret-key-12345"})
+        assert login.status_code == 200
+        r = client.get("/api/orchestrator/status")
+    assert r.status_code == 200
 
 
 def test_public_health_without_key(client):

@@ -17,8 +17,9 @@
 
   function withKeyHeaders(init) {
     const key = storedKey();
-    if (!key) return init || {};
     const opts = init ? Object.assign({}, init) : {};
+    opts.credentials = opts.credentials || "same-origin";
+    if (!key) return opts;
     const headers = new Headers(opts.headers || {});
     if (!headers.has("X-API-Key")) headers.set("X-API-Key", key);
     opts.headers = headers;
@@ -34,6 +35,7 @@
     saveKey(key.trim());
     const login = await nativeFetch("/api/auth/login", {
       method: "POST",
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ api_key: key.trim() }),
     });
@@ -43,11 +45,7 @@
 
   const NativeWS = window.WebSocket;
   window.WebSocket = function (url, protocols) {
-    const key = storedKey();
-    if (key && typeof url === "string" && !url.includes("api_key=")) {
-      const sep = url.includes("?") ? "&" : "?";
-      url = url + sep + "api_key=" + encodeURIComponent(key);
-    }
+    // 同源 WebSocket 自动携带 httponly Cookie（POST /api/auth/login 写入），无需 query api_key
     return protocols !== undefined ? new NativeWS(url, protocols) : new NativeWS(url);
   };
   window.WebSocket.prototype = NativeWS.prototype;

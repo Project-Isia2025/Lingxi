@@ -67,7 +67,8 @@ Grafana 预置 Dashboard：**灵犀引擎 · API 运维**（请求速率、P95 �
 | `REDIS_HOST` | redis | Leader 选举依赖 |
 | `CORS_ORIGINS` | 白名单域名 | 禁止 `*` |
 
-完整列表见 `config/local.env.example`。
+完整列表见 `config/local.env.example`。  
+生产部署可复制 `config/local.env.production.example` → `config/local.env` 并填写 `CHANGE_ME` 项。
 
 ### 4.1 API 鉴权分级
 

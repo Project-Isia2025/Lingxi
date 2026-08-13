@@ -84,6 +84,22 @@ def test_query_api_key_disabled_in_production():
         assert extract_api_key(Req()) == ""
 
 
+def test_websocket_uses_cookie_without_query_in_production():
+    from api.auth import API_AUTH_COOKIE, extract_api_key
+
+    class WS:
+        query_params = {"api_key": "from-query-should-be-ignored"}
+        headers = {}
+        cookies = {API_AUTH_COOKIE: "cookie-secret-key"}
+
+    with patch.dict(
+        "os.environ",
+        {"ENVIRONMENT": "production", "API_AUTH_ALLOW_QUERY_KEY": "0"},
+        clear=False,
+    ):
+        assert extract_api_key(WS()) == "cookie-secret-key"
+
+
 def test_celery_worker_required_in_readiness():
     import asyncio
 
