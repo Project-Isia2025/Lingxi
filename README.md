@@ -19,13 +19,25 @@
 ```powershell
 cd "D:\Lingxi Engine"
 pip install -r requirements.txt
+copy config\local.env.example config\local.env   # 首次
+python scripts\verify_local_setup.py             # 环境自检
 python api_server.py
 ```
 
+**Celery 模式（推荐，需 Redis / Memurai）：** 另开两个终端：
+
+```powershell
+python scripts\celery_worker.py
+python scripts\celery_beat.py
+```
+
 - 服务：`http://127.0.0.1:9200`（默认端口，避免与 AI口播智能体 9100 冲突）
+- 就绪探针：`http://127.0.0.1:9200/api/health/ready`
 - API 文档：`http://127.0.0.1:9200/docs`
+- 系统状态：`http://127.0.0.1:9200/dashboard/runtime`
 - 调价规则 UI：`http://127.0.0.1:9200/dashboard/ad-bid`
-- 运维中心：`http://127.0.0.1:9200/dashboard/runtime`
+
+生产配置模板：`config/local.env.production.example` · 运维手册：`docs/ops.md`
 
 ## CLI
 
